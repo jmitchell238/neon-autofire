@@ -152,8 +152,10 @@ function frame(now) {
   const cam = cameraX;
 
   ctx.save();
+  // Mild camera nudge only (hard shake is harsh / motion-sensitive)
   if (shake > 0 && (state === 'play' || state === 'levelup')) {
-    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    const s = Math.min(shake, 3) * 0.35;
+    ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
 
   if (state === 'menu') {
