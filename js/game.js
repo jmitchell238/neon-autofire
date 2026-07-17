@@ -400,7 +400,7 @@ function killEnemy(e, idx) {
   const ey = e.y - e.h / 2;
   burst(ex, ey, e.color, e.type === 'boss' ? 40 : 14, e.type === 'boss' ? 220 : 150);
   sfxExplode(e.type === 'boss');
-  shake = Math.max(shake, e.type === 'boss' ? 10 : 3);
+  shake = Math.max(shake, e.type === 'boss' ? 4 : 1.5);
 
   const n = e.type === 'boss' ? 10 : e.type === 'brute' || e.type === 'tank' ? 3 : 1;
   for (let i = 0; i < n; i++) {
@@ -486,7 +486,7 @@ function hurtPlayer(dmg) {
   if (!player || player.inv > 0) return;
   player.hp -= dmg;
   player.inv = PLAYER.invuln;
-  shake = Math.max(shake, 6);
+  shake = Math.max(shake, 2.5);
   sfxHurt();
   burst(playerCx(player), playerCy(player), '#ff4fd8', 10, 120);
   if (player.hp <= 0) {

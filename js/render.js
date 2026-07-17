@@ -1,67 +1,67 @@
 'use strict';
 
 function drawBackground(ctx, cam, t) {
-  // Night gradient base
+  // Calm night gradient — keep the playfield readable and low-stimulation
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#07041a');
-  g.addColorStop(0.55, '#120a2a');
-  g.addColorStop(1, '#1a0c22');
+  g.addColorStop(0, '#08061a');
+  g.addColorStop(0.5, '#0e0a22');
+  g.addColorStop(1, '#120c24');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  // Stars
+  // Sparse static stars (no scroll — avoids busy motion)
   ctx.save();
-  for (let i = 0; i < 40; i++) {
+  ctx.fillStyle = '#9eb6d8';
+  for (let i = 0; i < 18; i++) {
     const seed = i * 97;
-    const x = ((seed * 37 - cam * 0.05) % (W + 20) + W + 20) % (W + 20) - 10;
-    const y = 16 + (seed * 53) % 180;
-    ctx.globalAlpha = 0.2 + (i % 5) * 0.12;
-    ctx.fillStyle = '#d0e8ff';
+    const x = (seed * 37) % W;
+    const y = 20 + (seed * 53) % 160;
+    ctx.globalAlpha = 0.12 + (i % 3) * 0.05;
     ctx.fillRect(x, y, 1.5, 1.5);
   }
   ctx.restore();
 
-  // Pixel city parallax (Cyber City CC0)
+  // Single soft city silhouette — one layer only, very slow drift, heavily muted
   const city = getSprite('bg/city') || getSprite('bg/city1x');
   if (city && city.ready) {
     const img = city.img;
-    const scale = (GROUND_Y - PLAY.top - 20) / img.height;
+    // Sit lower and smaller so it stays backdrop, not a second playfield
+    const ch = Math.min(img.height * 0.9, (GROUND_Y - PLAY.top) * 0.55);
+    const scale = ch / img.height;
     const cw = img.width * scale;
-    const ch = img.height * scale;
-    const y = GROUND_Y - ch + 8;
-    const scroll = (cam * 0.35) % cw;
+    const y = GROUND_Y - ch + 4;
+    // Very gentle parallax (was 0.35 + a second 0.55 layer — that stacked the same art)
+    const scroll = (cam * 0.08) % cw;
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = 0.85;
+    ctx.imageSmoothingEnabled = true; // soft blur reduces harsh pixel flicker
+    ctx.globalAlpha = 0.22;
     for (let x = -scroll - cw; x < W + cw; x += cw) {
       ctx.drawImage(img, x, y, cw, ch);
     }
-    // Darker near layer
-    ctx.globalAlpha = 0.35;
-    const scroll2 = (cam * 0.55) % cw;
-    for (let x = -scroll2 - cw; x < W + cw; x += cw) {
-      ctx.drawImage(img, x, y + 20, cw * 1.1, ch * 0.9);
-    }
+    ctx.restore();
+
+    // Dark wash so the city never competes with characters
+    ctx.save();
+    const wash = ctx.createLinearGradient(0, y, 0, GROUND_Y);
+    wash.addColorStop(0, 'rgba(8, 6, 26, 0.15)');
+    wash.addColorStop(1, 'rgba(8, 6, 26, 0.55)');
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, y, W, GROUND_Y - y + 2);
     ctx.restore();
   } else {
-    // Fallback skyline
-    ctx.fillStyle = '#1a1440';
-    for (let i = -1; i < 10; i++) {
-      const bw = 30 + (i * 17) % 40;
-      const bh = 80 + (i * 23) % 100;
-      const x = ((i * 55 - cam * 0.3) % (W + 80)) - 40;
+    // Simple muted skyline blocks (static, one layer)
+    ctx.fillStyle = 'rgba(28, 22, 58, 0.45)';
+    for (let i = 0; i < 8; i++) {
+      const bw = 28 + (i * 17) % 36;
+      const bh = 50 + (i * 19) % 70;
+      const x = 10 + i * 48;
       ctx.fillRect(x, GROUND_Y - bh, bw, bh);
     }
   }
 
-  // Neon haze
-  ctx.save();
-  ctx.globalAlpha = 0.08;
-  ctx.fillStyle = '#3de7ff';
-  ctx.fillRect(0, GROUND_Y - 40, W, 40);
-  ctx.fillStyle = '#ff4fd8';
-  ctx.fillRect(0, GROUND_Y - 12, W, 12);
-  ctx.restore();
+  // Soft ground horizon line (no flashing neon bands)
+  ctx.fillStyle = 'rgba(61, 231, 255, 0.06)';
+  ctx.fillRect(0, GROUND_Y - 1, W, 2);
 
   // Below-ground fill
   ctx.fillStyle = '#0a0614';
