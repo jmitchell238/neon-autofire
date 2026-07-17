@@ -3,7 +3,7 @@
 
 // ---- Version (MAJOR.MINOR.PATCH) --------------------------------------------
 // Keep CACHE in sw.js in sync: 'neon-autofire-' + GAME_VERSION
-const GAME_VERSION = '1.1.000';
+const GAME_VERSION = '1.2.000';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const GAME_NAME = 'Neon Autofire';
 
@@ -24,10 +24,10 @@ const PLAY_H = PLAY.bottom - PLAY.top;
 // World ground line (screen Y of solid floor top)
 const GROUND_Y = PLAY.bottom - 18;
 
-// Player — humanoid platformer
+// Player — humanoid platformer (matches ~48px sprite @ 2.1×)
 const PLAYER = {
-  w: 22,
-  h: 34,
+  w: 26,
+  h: 42,
   runSpeed: 210,
   maxHp: 100,
   invuln: 0.7,
@@ -62,12 +62,12 @@ function xpForLevel(level) {
 // Enemy archetypes — ground/air creatures (not ships)
 // fly: true = no gravity, free height; else walks on ground/platforms
 const ENEMIES = {
-  grunt:  { w: 20, h: 28, hp: 22,  speed: 55,  score: 10, xp: 2,  color: '#ff6b8a', damage: 12, fly: false },
-  hopper: { w: 18, h: 22, hp: 16,  speed: 70,  score: 14, xp: 3,  color: '#ffd23e', damage: 10, fly: false, hop: true },
-  brute:  { w: 32, h: 36, hp: 90,  speed: 32,  score: 35, xp: 6,  color: '#a78bfa', damage: 22, fly: false },
-  flyer:  { w: 22, h: 18, hp: 20,  speed: 75,  score: 16, xp: 3,  color: '#3de7ff', damage: 12, fly: true },
-  gunner: { w: 20, h: 30, hp: 32,  speed: 40,  score: 24, xp: 4,  color: '#7dffa0', damage: 14, fly: false, shoots: true },
-  boss:   { w: 48, h: 52, hp: 520, speed: 28,  score: 400, xp: 40, color: '#ff4fd8', damage: 28, fly: false, shoots: true },
+  grunt:  { w: 24, h: 40, hp: 22,  speed: 55,  score: 10, xp: 2,  color: '#ff6b8a', damage: 12, fly: false },
+  hopper: { w: 22, h: 38, hp: 16,  speed: 70,  score: 14, xp: 3,  color: '#ffd23e', damage: 10, fly: false, hop: true },
+  brute:  { w: 36, h: 48, hp: 90,  speed: 32,  score: 35, xp: 6,  color: '#a78bfa', damage: 22, fly: false },
+  flyer:  { w: 28, h: 36, hp: 20,  speed: 75,  score: 16, xp: 3,  color: '#3de7ff', damage: 12, fly: true },
+  gunner: { w: 26, h: 42, hp: 32,  speed: 40,  score: 24, xp: 4,  color: '#7dffa0', damage: 14, fly: false, shoots: true },
+  boss:   { w: 56, h: 64, hp: 520, speed: 28,  score: 400, xp: 40, color: '#ff4fd8', damage: 28, fly: false, shoots: true },
 };
 
 // Back-compat aliases used by older tests / spawn names

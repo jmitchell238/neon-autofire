@@ -29,6 +29,16 @@ Weapons **auto-aim and auto-fire** at the nearest enemy. You run, jump, and stay
 
 Static HTML/CSS/Canvas. No build step. Progress in `localStorage`.
 
+## Pixel art credits
+
+| Pack | Source | License |
+|------|--------|---------|
+| **3 Cyberpunk Characters** (Cyborg player, Biker/Punk enemies) | [OpenGameArt](https://opengameart.org/content/3-cyberpunk-characters) / [CraftPix freebie](https://craftpix.net/freebies/free-3-cyberpunk-characters-pixel-art/) | OGA-BY 3.0 |
+| **Cyber City** (skyline + yakuza foes) | [OpenGameArt — Buch](https://opengameart.org/content/cyber-city) | CC0 |
+| **Free Sci-Fi Platformer Tileset** | [OpenGameArt](https://opengameart.org/content/free-sci-fi-platformer-game-tileset) | CC0 |
+
+See `assets/CREDITS.md` for the full attribution list.
+
 ## Versioning
 
 - `GAME_VERSION` in `js/config.js` — `MAJOR.MINOR.PATCH` (patch zero-padded to 3 digits)
