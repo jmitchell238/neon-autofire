@@ -3,7 +3,7 @@
 
 // ---- Version (MAJOR.MINOR.PATCH) --------------------------------------------
 // Keep CACHE in sw.js in sync: 'neon-autofire-' + GAME_VERSION
-const GAME_VERSION = '1.2.001';
+const GAME_VERSION = '1.2.002';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const GAME_NAME = 'Neon Autofire';
 
@@ -28,16 +28,47 @@ const GROUND_Y = PLAY.bottom - 18;
 const PLAYER = {
   w: 26,
   h: 42,
-  runSpeed: 210,
+  runSpeed: 220,
   maxHp: 100,
   invuln: 0.7,
   magnet: 80,
-  gravity: 1650,
-  jumpVel: -520,
+  gravity: 1550,
+  jumpVel: -560,     // ~101px max height at base
   maxFall: 780,
-  coyote: 0.1,       // seconds after leaving ledge
-  jumpBuffer: 0.12,  // early jump press window
-  airControl: 0.85,
+  coyote: 0.12,      // seconds after leaving ledge
+  jumpBuffer: 0.14,  // early jump press window
+  airControl: 0.9,
+};
+
+// ---- Jump envelope (single jump only — used by level gen + tests) -----------
+// Peak height: v² / (2g). Air time (same height): 2v/g. Horiz ≈ runSpeed * airTime.
+function maxJumpHeight(jumpMul) {
+  const v = Math.abs(PLAYER.jumpVel) * (jumpMul || 1);
+  return (v * v) / (2 * PLAYER.gravity);
+}
+function maxJumpAirTime(jumpMul) {
+  const v = Math.abs(PLAYER.jumpVel) * (jumpMul || 1);
+  return (2 * v) / PLAYER.gravity;
+}
+function maxJumpDistance(jumpMul, speedMul) {
+  return PLAYER.runSpeed * (speedMul || 1) * maxJumpAirTime(jumpMul);
+}
+
+// Safety margins for procedural platforms (no double-jump)
+const JUMP_SAFE = {
+  // Max rise (smaller Y) between consecutive platforms — fraction of peak height
+  riseFrac: 0.62,
+  // Max horizontal gap (edge → edge) when landing roughly same height
+  gapFracSame: 0.62,
+  // Tighter gap when climbing
+  gapFracUp: 0.48,
+  // Wider when dropping down
+  gapFracDown: 0.78,
+  // How far down is always ok (falling)
+  maxDrop: 140,
+  minGap: 18,
+  minWidth: 96,
+  maxWidth: 170,
 };
 
 // Camera: keep hero roughly here on screen

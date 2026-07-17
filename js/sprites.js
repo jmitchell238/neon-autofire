@@ -3,32 +3,33 @@
 
 const SPRITE_MANIFEST = {
   // Player — CraftPix Cyborg (OGA-BY) 48×48 strips
-  'player/idle':       { src: 'assets/sprites/player/Cyborg_idle.png',       fw: 48, fh: 48, frames: 4, fps: 8  },
-  'player/run':        { src: 'assets/sprites/player/Cyborg_run.png',        fw: 48, fh: 48, frames: 6, fps: 12 },
-  'player/jump':       { src: 'assets/sprites/player/Cyborg_jump.png',       fw: 48, fh: 48, frames: 4, fps: 10 },
-  'player/runAttack':  { src: 'assets/sprites/player/Cyborg_run_attack.png', fw: 48, fh: 48, frames: 6, fps: 14 },
-  'player/hurt':       { src: 'assets/sprites/player/Cyborg_hurt.png',       fw: 48, fh: 48, frames: 2, fps: 8  },
-  'player/death':      { src: 'assets/sprites/player/Cyborg_death.png',      fw: 48, fh: 48, frames: 6, fps: 8  },
-  'player/doublejump': { src: 'assets/sprites/player/Cyborg_doublejump.png', fw: 48, fh: 48, frames: 6, fps: 12 },
+  // Keep fps low so limbs stay readable (was blurring at 12–14)
+  'player/idle':       { src: 'assets/sprites/player/Cyborg_idle.png',       fw: 48, fh: 48, frames: 4, fps: 4  },
+  'player/run':        { src: 'assets/sprites/player/Cyborg_run.png',        fw: 48, fh: 48, frames: 6, fps: 6  },
+  'player/jump':       { src: 'assets/sprites/player/Cyborg_jump.png',       fw: 48, fh: 48, frames: 4, fps: 5  },
+  'player/runAttack':  { src: 'assets/sprites/player/Cyborg_run_attack.png', fw: 48, fh: 48, frames: 6, fps: 6  },
+  'player/hurt':       { src: 'assets/sprites/player/Cyborg_hurt.png',       fw: 48, fh: 48, frames: 2, fps: 4  },
+  'player/death':      { src: 'assets/sprites/player/Cyborg_death.png',      fw: 48, fh: 48, frames: 6, fps: 5  },
+  'player/doublejump': { src: 'assets/sprites/player/Cyborg_doublejump.png', fw: 48, fh: 48, frames: 6, fps: 5  },
 
   // Enemies — Biker / Punk (same pack) + Cyber City yakuza (CC0, 64×64 grid 3×4)
-  'enemy/biker/idle':  { src: 'assets/sprites/enemies/Biker_idle.png',  fw: 48, fh: 48, frames: 4, fps: 7  },
-  'enemy/biker/run':   { src: 'assets/sprites/enemies/Biker_run.png',   fw: 48, fh: 48, frames: 6, fps: 10 },
-  'enemy/biker/jump':  { src: 'assets/sprites/enemies/Biker_jump.png',  fw: 48, fh: 48, frames: 4, fps: 8  },
-  'enemy/biker/hurt':  { src: 'assets/sprites/enemies/Biker_hurt.png',  fw: 48, fh: 48, frames: 2, fps: 8  },
-  'enemy/biker/death': { src: 'assets/sprites/enemies/Biker_death.png', fw: 48, fh: 48, frames: 6, fps: 8  },
+  'enemy/biker/idle':  { src: 'assets/sprites/enemies/Biker_idle.png',  fw: 48, fh: 48, frames: 4, fps: 3  },
+  'enemy/biker/run':   { src: 'assets/sprites/enemies/Biker_run.png',   fw: 48, fh: 48, frames: 6, fps: 5  },
+  'enemy/biker/jump':  { src: 'assets/sprites/enemies/Biker_jump.png',  fw: 48, fh: 48, frames: 4, fps: 4  },
+  'enemy/biker/hurt':  { src: 'assets/sprites/enemies/Biker_hurt.png',  fw: 48, fh: 48, frames: 2, fps: 4  },
+  'enemy/biker/death': { src: 'assets/sprites/enemies/Biker_death.png', fw: 48, fh: 48, frames: 6, fps: 5  },
 
-  'enemy/punk/idle':   { src: 'assets/sprites/enemies/Punk_idle.png',   fw: 48, fh: 48, frames: 4, fps: 7  },
-  'enemy/punk/run':    { src: 'assets/sprites/enemies/Punk_run.png',    fw: 48, fh: 48, frames: 6, fps: 10 },
-  'enemy/punk/jump':   { src: 'assets/sprites/enemies/Punk_jump.png',   fw: 48, fh: 48, frames: 4, fps: 8  },
-  'enemy/punk/hurt':   { src: 'assets/sprites/enemies/Punk_hurt.png',   fw: 48, fh: 48, frames: 2, fps: 8  },
-  'enemy/punk/death':  { src: 'assets/sprites/enemies/Punk_death.png',  fw: 48, fh: 48, frames: 6, fps: 8  },
+  'enemy/punk/idle':   { src: 'assets/sprites/enemies/Punk_idle.png',   fw: 48, fh: 48, frames: 4, fps: 3  },
+  'enemy/punk/run':    { src: 'assets/sprites/enemies/Punk_run.png',    fw: 48, fh: 48, frames: 6, fps: 5  },
+  'enemy/punk/jump':   { src: 'assets/sprites/enemies/Punk_jump.png',   fw: 48, fh: 48, frames: 4, fps: 4  },
+  'enemy/punk/hurt':   { src: 'assets/sprites/enemies/Punk_hurt.png',   fw: 48, fh: 48, frames: 2, fps: 4  },
+  'enemy/punk/death':  { src: 'assets/sprites/enemies/Punk_death.png',  fw: 48, fh: 48, frames: 6, fps: 5  },
 
   // Yakuza sheets: 192×256 → 3 cols × 4 rows of 64×64 (walk cycle row 0)
-  'enemy/yakuza1':     { src: 'assets/sprites/enemies/yakuza1.png',     fw: 64, fh: 64, frames: 3, fps: 8, row: 0 },
-  'enemy/yakuza2':     { src: 'assets/sprites/enemies/yakuza2.png',     fw: 64, fh: 64, frames: 3, fps: 8, row: 0 },
-  'enemy/yakuza3':     { src: 'assets/sprites/enemies/yakuza3.png',     fw: 64, fh: 64, frames: 3, fps: 8, row: 0 },
-  'enemy/yakuzaBoss':  { src: 'assets/sprites/enemies/yakuza_boss.png', fw: 64, fh: 64, frames: 3, fps: 6, row: 0 },
+  'enemy/yakuza1':     { src: 'assets/sprites/enemies/yakuza1.png',     fw: 64, fh: 64, frames: 3, fps: 4, row: 0 },
+  'enemy/yakuza2':     { src: 'assets/sprites/enemies/yakuza2.png',     fw: 64, fh: 64, frames: 3, fps: 4, row: 0 },
+  'enemy/yakuza3':     { src: 'assets/sprites/enemies/yakuza3.png',     fw: 64, fh: 64, frames: 3, fps: 4, row: 0 },
+  'enemy/yakuzaBoss':  { src: 'assets/sprites/enemies/yakuza_boss.png', fw: 64, fh: 64, frames: 3, fps: 3, row: 0 },
 
   // Environment
   'bg/city':           { src: 'assets/sprites/bg/city_2x.png' },
