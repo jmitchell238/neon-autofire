@@ -1,5 +1,5 @@
 // Bump with GAME_VERSION in js/config.js (MAJOR.MINOR.PATCH).
-const CACHE = 'neon-autofire-1.1.000';
+const CACHE = 'neon-autofire-1.2.000';
 
 const ASSETS = [
   './',
@@ -9,6 +9,7 @@ const ASSETS = [
   './js/save.js',
   './js/util.js',
   './js/audio.js',
+  './js/sprites.js',
   './js/game.js',
   './js/render.js',
   './js/main.js',
@@ -18,6 +19,39 @@ const ASSETS = [
   './icons/icon-512.png',
   './apple-touch-icon.png',
   './art/cover.jpg',
+  // core sprites (service worker precache — keep list lean)
+  './assets/sprites/player/Cyborg_idle.png',
+  './assets/sprites/player/Cyborg_run.png',
+  './assets/sprites/player/Cyborg_jump.png',
+  './assets/sprites/player/Cyborg_run_attack.png',
+  './assets/sprites/player/Cyborg_hurt.png',
+  './assets/sprites/player/Cyborg_death.png',
+  './assets/sprites/player/Cyborg_doublejump.png',
+  './assets/sprites/player/logo.png',
+  './assets/sprites/enemies/Biker_idle.png',
+  './assets/sprites/enemies/Biker_run.png',
+  './assets/sprites/enemies/Biker_jump.png',
+  './assets/sprites/enemies/Biker_hurt.png',
+  './assets/sprites/enemies/Biker_death.png',
+  './assets/sprites/enemies/Punk_idle.png',
+  './assets/sprites/enemies/Punk_run.png',
+  './assets/sprites/enemies/Punk_jump.png',
+  './assets/sprites/enemies/Punk_hurt.png',
+  './assets/sprites/enemies/Punk_death.png',
+  './assets/sprites/enemies/yakuza1.png',
+  './assets/sprites/enemies/yakuza2.png',
+  './assets/sprites/enemies/yakuza3.png',
+  './assets/sprites/enemies/yakuza_boss.png',
+  './assets/sprites/bg/city.png',
+  './assets/sprites/bg/city_2x.png',
+  './assets/sprites/tiles/tile_1.png',
+  './assets/sprites/tiles/tile_2.png',
+  './assets/sprites/tiles/tile_3.png',
+  './assets/sprites/tiles/platform_strip.png',
+  './assets/sprites/fx/bullet.png',
+  './assets/sprites/fx/gem.png',
+  './assets/sprites/fx/heal.png',
+  './assets/sprites/fx/orbit.png',
 ];
 
 function precacheAll(cache) {

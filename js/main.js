@@ -488,9 +488,27 @@ function registerSW() {
   setInterval(checkRemoteVersion, 2 * 60 * 1000);
 }
 
+let assetsLoaded = false;
+
 applyVersionLabels();
 updateMenuStats();
 setScreen('menu');
 registerSW();
 ({ ctx } = resizeCanvas(cv));
-requestAnimationFrame(t => { last = t; frame(t); });
+
+function bootFrame(now) {
+  if (!ctx) ({ ctx } = resizeCanvas(cv));
+  if (!assetsLoaded) {
+    drawLoading(ctx, 0.4);
+    requestAnimationFrame(bootFrame);
+    return;
+  }
+  last = now;
+  frame(now);
+}
+
+loadAllSprites()
+  .then(() => { assetsLoaded = true; })
+  .catch(() => { assetsLoaded = true; });
+
+requestAnimationFrame(bootFrame);

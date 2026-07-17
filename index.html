@@ -23,9 +23,12 @@
     <!-- MENU -->
     <div class="screen" data-screen="menu" id="screenMenu">
       <div class="menu-card">
-        <img class="logo-icon" src="icons/icon-192.png" alt="" width="72" height="72" />
+        <div class="logo-wrap">
+          <img class="logo-icon" id="logoSprite" src="assets/sprites/player/logo.png" alt="" width="96" height="48" />
+        </div>
         <h1><span class="c1">Neon</span> <span class="c2">Autofire</span></h1>
         <p class="tagline">Run · jump · auto-blast · level up</p>
+        <p class="credit-line">Pixel art: CraftPix cyberpunk pack · Cyber City · Sci-fi tiles</p>
 
         <div class="stats">
           <div><span class="lbl">Best</span><strong id="statBest">0</strong></div>
@@ -79,6 +82,7 @@
   <script src="js/save.js"></script>
   <script src="js/util.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/sprites.js"></script>
   <script src="js/game.js"></script>
   <script src="js/render.js"></script>
   <script src="js/main.js"></script>
