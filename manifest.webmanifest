@@ -1,7 +1,7 @@
 {
   "name": "Neon Autofire",
   "short_name": "Autofire",
-  "description": "Side-scrolling auto-shooter — move, auto-blast enemies, level up, and survive the neon swarm.",
+  "description": "Run, jump, and auto-blast — a side-scrolling platformer shooter. Level up and survive the neon city.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

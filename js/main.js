@@ -5,11 +5,21 @@ const stage = document.getElementById('stage');
 let ctx = null;
 let last = performance.now();
 
-// Virtual joystick / keyboard
-const stick = { active: false, dx: 0, dy: 0, id: null, ox: 0, oy: 0 };
+// Virtual stick (move) + jump button
+const stick = {
+  active: false,
+  dx: 0,
+  dy: 0,
+  id: null,
+  ox: 0,
+  oy: 0,
+  jumpDown: false,
+  jumpId: null,
+  jumpQueued: false,
+};
 const keys = Object.create(null);
-const STICK_ORIGIN = { x: 72, y: H - 52 };
-const STICK_R = 38;
+const STICK_R = 40;
+const JUMP_BTN = { x: W - 58, y: H - 52, r: 34 };
 
 function setScreen(name) {
   document.querySelectorAll('.screen').forEach(el => {
@@ -56,7 +66,6 @@ function showOver() {
   document.getElementById('overWave').textContent = String(wave);
   document.getElementById('overKills').textContent = String(kills);
   document.getElementById('overReason').textContent = overReason;
-  // recordGameEnd already updated best — show banner when this run is the best
   const newBest = Math.floor(score) > 0 && Math.floor(score) >= save.best;
   document.getElementById('newBest').classList.toggle('hidden', !newBest);
   if (window.__pendingReload) {
@@ -71,6 +80,10 @@ function resetStick() {
   stick.dx = 0;
   stick.dy = 0;
   stick.id = null;
+  stick.jumpDown = false;
+  stick.jumpId = null;
+  stick.jumpQueued = false;
+  setJumpHeld(false);
 }
 
 function canvasRect() {
@@ -79,12 +92,14 @@ function canvasRect() {
 
 function clientToStage(clientX, clientY) {
   const rect = canvasRect();
-  const scaleX = rect.width / W;
-  const scaleY = rect.height / H;
   return {
-    x: (clientX - rect.left) / scaleX,
-    y: (clientY - rect.top) / scaleY,
+    x: (clientX - rect.left) / (rect.width / W),
+    y: (clientY - rect.top) / (rect.height / H),
   };
+}
+
+function hitJumpBtn(sx, sy) {
+  return dist(sx, sy, JUMP_BTN.x, JUMP_BTN.y) <= JUMP_BTN.r + 8;
 }
 
 function keyboardAxis() {
@@ -98,14 +113,26 @@ function keyboardAxis() {
 
 function inputAxis() {
   const k = keyboardAxis();
-  if (stick.active && (Math.abs(stick.dx) > 0.05 || Math.abs(stick.dy) > 0.05)) {
-    // Prefer stick when active; blend if keys also pressed
+  if (stick.active && Math.abs(stick.dx) > 0.05) {
     return {
       x: clamp(stick.dx + k.x * 0.35, -1, 1),
-      y: clamp(stick.dy + k.y * 0.35, -1, 1),
+      y: clamp((stick.dy || 0) * 0.5 + k.y * 0.5, -1, 1),
     };
   }
   return k;
+}
+
+function wantJumpThisFrame() {
+  const kJump = !!(keys[' '] || keys.ArrowUp || keys.w || keys.W || keys.Spacebar);
+  if (kJump) setJumpHeld(true);
+  else if (!stick.jumpDown) setJumpHeld(false);
+
+  if (stick.jumpQueued) {
+    stick.jumpQueued = false;
+    return true;
+  }
+  // Keyboard edge: main also sets keys; request every frame while held is ok (buffer)
+  return kJump;
 }
 
 // ---- Frame ------------------------------------------------------------------
@@ -118,35 +145,32 @@ function frame(now) {
 
   if (state === 'play') {
     const axis = inputAxis();
-    updatePlay(dt, axis.x, axis.y);
+    updatePlay(dt, axis.x, axis.y, wantJumpThisFrame());
     if (state === 'over') showOver();
-    else if (state === 'levelup') {
-      // keep play chrome; overlay drawn on canvas
-    }
   }
 
-  // Draw
+  const cam = cameraX;
+
   ctx.save();
   if (shake > 0 && (state === 'play' || state === 'levelup')) {
     ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
   }
 
-  drawBackground(ctx, scrollX, t);
-
   if (state === 'menu') {
     drawIdleDecor(ctx, t);
   } else {
-    for (const g of gems) drawGem(ctx, g, t);
-    for (const p of pickups) drawPickup(ctx, p, t);
-    for (const b of eBullets) drawBullet(ctx, b);
-    for (const e of enemies) drawEnemy(ctx, e);
-    for (const b of bullets) drawBullet(ctx, b);
-    for (const o of orbits) drawOrbit(ctx, o);
-    if (player && state !== 'over') drawPlayer(ctx, player, t);
-    else if (player && state === 'over') drawPlayer(ctx, player, t);
-    drawParticles(ctx);
+    drawBackground(ctx, cam, t);
+    drawPlatforms(ctx, cam);
+    for (const g of gems) drawGem(ctx, g, t, cam);
+    for (const p of pickups) drawPickup(ctx, p, t, cam);
+    for (const b of eBullets) drawBullet(ctx, b, cam);
+    for (const e of enemies) drawEnemy(ctx, e, cam);
+    for (const b of bullets) drawBullet(ctx, b, cam);
+    for (const o of orbits) drawOrbit(ctx, o, cam);
+    if (player) drawPlayer(ctx, player, t, cam);
+    drawParticles(ctx, cam);
     drawHud(ctx, player, score, Math.max(save.best, Math.floor(score)), wave);
-    if (state === 'play' || state === 'levelup') drawJoystick(ctx, stick);
+    if (state === 'play' || state === 'levelup') drawControls(ctx, stick);
   }
 
   if (state === 'levelup') {
@@ -157,7 +181,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// ---- Pointer / joystick -----------------------------------------------------
+// ---- Pointer ----------------------------------------------------------------
 function onPointerDown(e) {
   if (state === 'levelup') {
     ensureAudio();
@@ -172,28 +196,31 @@ function onPointerDown(e) {
   if (state !== 'play') return;
   ensureAudio();
   const p = clientToStage(e.clientX, e.clientY);
-  // Always capture as joystick when playing (full-screen control)
+
+  // Right half / jump button → jump
+  if (hitJumpBtn(p.x, p.y) || p.x > W * 0.62) {
+    stick.jumpDown = true;
+    stick.jumpId = e.pointerId;
+    stick.jumpQueued = true;
+    setJumpHeld(true);
+    e.preventDefault();
+    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* ok */ }
+    return;
+  }
+
+  // Left / center → move stick
   stick.active = true;
   stick.id = e.pointerId;
   stick.ox = p.x;
   stick.oy = p.y;
-  // Relative stick from fixed origin OR from touch point
-  // Use fixed on-screen stick origin for consistency
   updateStickFromStage(p.x, p.y);
   e.preventDefault();
   try { stage.setPointerCapture(e.pointerId); } catch (_) { /* ok */ }
 }
 
 function updateStickFromStage(sx, sy) {
-  // Prefer drag relative to press origin for precision
-  let dx, dy;
-  if (stick.ox || stick.oy) {
-    dx = (sx - stick.ox) / STICK_R;
-    dy = (sy - stick.oy) / STICK_R;
-  } else {
-    dx = (sx - STICK_ORIGIN.x) / STICK_R;
-    dy = (sy - STICK_ORIGIN.y) / STICK_R;
-  }
+  let dx = (sx - stick.ox) / STICK_R;
+  let dy = (sy - stick.oy) / STICK_R;
   const len = Math.hypot(dx, dy);
   if (len > 1) {
     dx /= len;
@@ -204,23 +231,36 @@ function updateStickFromStage(sx, sy) {
 }
 
 function onPointerMove(e) {
-  if (state !== 'play' || !stick.active) return;
-  if (stick.id != null && e.pointerId !== stick.id) return;
-  const p = clientToStage(e.clientX, e.clientY);
-  updateStickFromStage(p.x, p.y);
-  e.preventDefault();
+  if (state !== 'play') return;
+  if (stick.active && (stick.id == null || e.pointerId === stick.id)) {
+    const p = clientToStage(e.clientX, e.clientY);
+    updateStickFromStage(p.x, p.y);
+    e.preventDefault();
+  }
 }
 
 function onPointerUp(e) {
-  if (stick.id != null && e.pointerId !== stick.id) return;
-  resetStick();
+  if (stick.jumpId != null && e.pointerId === stick.jumpId) {
+    stick.jumpDown = false;
+    stick.jumpId = null;
+    setJumpHeld(false);
+  }
+  if (stick.id != null && e.pointerId === stick.id) {
+    stick.active = false;
+    stick.dx = 0;
+    stick.dy = 0;
+    stick.id = null;
+  }
+  // If no id tracking matched, clear all
+  if (!stick.active && !stick.jumpDown) {
+    // ok
+  }
 }
 
 function onPointerCancel() {
   resetStick();
 }
 
-// Touch fallbacks
 function touchClient(e) {
   const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
   if (!t) return null;
@@ -240,29 +280,55 @@ function onTouchStart(e) {
     return;
   }
   if (state !== 'play') return;
-  const t = touchClient(e);
-  if (!t) return;
-  ensureAudio();
-  const p = clientToStage(t.x, t.y);
-  stick.active = true;
-  stick.id = t.id;
-  stick.ox = p.x;
-  stick.oy = p.y;
-  updateStickFromStage(p.x, p.y);
+  // Multi-touch: process all new touches
+  const touches = e.changedTouches || [];
+  for (let i = 0; i < touches.length; i++) {
+    const t = touches[i];
+    const p = clientToStage(t.clientX, t.clientY);
+    if (hitJumpBtn(p.x, p.y) || p.x > W * 0.62) {
+      stick.jumpDown = true;
+      stick.jumpId = t.identifier;
+      stick.jumpQueued = true;
+      setJumpHeld(true);
+    } else if (!stick.active) {
+      stick.active = true;
+      stick.id = t.identifier;
+      stick.ox = p.x;
+      stick.oy = p.y;
+      updateStickFromStage(p.x, p.y);
+    }
+  }
   e.preventDefault();
 }
 
 function onTouchMove(e) {
   if (state !== 'play' || !stick.active) return;
-  const t = touchClient(e);
-  if (!t) return;
-  const p = clientToStage(t.x, t.y);
-  updateStickFromStage(p.x, p.y);
+  const touches = e.changedTouches || [];
+  for (let i = 0; i < touches.length; i++) {
+    const t = touches[i];
+    if (stick.id != null && t.identifier !== stick.id) continue;
+    const p = clientToStage(t.clientX, t.clientY);
+    updateStickFromStage(p.x, p.y);
+  }
   e.preventDefault();
 }
 
 function onTouchEnd(e) {
-  resetStick();
+  const touches = e.changedTouches || [];
+  for (let i = 0; i < touches.length; i++) {
+    const t = touches[i];
+    if (stick.jumpId != null && t.identifier === stick.jumpId) {
+      stick.jumpDown = false;
+      stick.jumpId = null;
+      setJumpHeld(false);
+    }
+    if (stick.id != null && t.identifier === stick.id) {
+      stick.active = false;
+      stick.dx = 0;
+      stick.dy = 0;
+      stick.id = null;
+    }
+  }
 }
 
 const ptrOpts = { passive: false };
@@ -297,6 +363,11 @@ addEventListener('keydown', e => {
     return;
   }
 
+  if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+    e.preventDefault();
+    requestJump();
+    setJumpHeld(true);
+  }
   if (e.key === 'Escape') {
     e.preventDefault();
     showMenu();
@@ -305,13 +376,16 @@ addEventListener('keydown', e => {
 
 addEventListener('keyup', e => {
   keys[e.key] = false;
+  if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+    setJumpHeld(false);
+  }
 });
 
 addEventListener('resize', () => {
   ({ ctx } = resizeCanvas(cv));
 });
 
-// ---- UI buttons -------------------------------------------------------------
+// ---- UI ---------------------------------------------------------------------
 document.getElementById('btnPlay').addEventListener('click', () => {
   sfxClick();
   showPlay();
@@ -340,7 +414,6 @@ document.getElementById('muteBtn').addEventListener('click', () => {
   sfxClick();
 });
 
-// ---- Version UI -------------------------------------------------------------
 function applyVersionLabels() {
   const label = GAME_NAME + ' ' + GAME_VERSION_LABEL;
   const tag = document.getElementById('versionTag');
@@ -351,7 +424,6 @@ function applyVersionLabels() {
   if (over) over.textContent = label;
 }
 
-// ---- PWA + auto-update ------------------------------------------------------
 function safeReloadForUpdate() {
   if (window.__reloaded) return;
   if (state === 'play' || state === 'levelup') {
@@ -416,7 +488,6 @@ function registerSW() {
   setInterval(checkRemoteVersion, 2 * 60 * 1000);
 }
 
-// Boot
 applyVersionLabels();
 updateMenuStats();
 setScreen('menu');

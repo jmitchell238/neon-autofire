@@ -57,7 +57,7 @@ function loadGame() {
   const exportFooter = `
     globalThis.__TEST__ = {
       GAME_VERSION, GAME_VERSION_LABEL, GAME_NAME,
-      W, H, PLAY, PLAYER, ENEMIES, UPGRADES, WAVE, xpForLevel,
+      W, H, PLAY, PLAYER, ENEMIES, UPGRADES, WAVE, GROUND_Y, xpForLevel,
       state: () => state,
       setState: (s) => { state = s; },
       score: () => score,
@@ -68,10 +68,13 @@ function loadGame() {
       bullets: () => bullets,
       enemies: () => enemies,
       gems: () => gems,
+      platforms: () => platforms,
+      cameraX: () => cameraX,
       levelChoices: () => levelChoices,
       startGame, resetRun, startWave, spawnEnemy, firePlayer,
       updatePlay, applyUpgrade, addXp, openLevelUp, killEnemy,
-      hurtPlayer, endGame, nearestEnemy, movePlayer,
+      hurtPlayer, endGame, nearestEnemy, movePlayer, requestJump,
+      setJumpHeld, seedPlatforms,
       clamp, dist, circleHit, defaultStats,
       save, recordGameEnd, defaultSave,
     };
@@ -168,12 +171,16 @@ section('game lifecycle');
   assert(G.stats().fireRate > 0, 'base fire rate');
 
   G.startWave();
+  assert(G.platforms().length >= 1, 'platforms seeded');
+  assert(G.player().onGround === true, 'player starts on ground');
+  assert(Math.abs(G.player().y - G.GROUND_Y) < 1, 'player feet on ground Y');
+
   // Force spawn
   G.spawnEnemy('drone');
-  assert(G.enemies().length >= 1, 'spawned drone');
+  assert(G.enemies().length >= 1, 'spawned grunt (drone alias)');
   const e = G.enemies()[0];
   assert(e.hp > 0, 'enemy has hp');
-  assert(e.x > G.PLAY.right - 5, 'enemy spawns off right');
+  assert(e.x > G.cameraX() + 50, 'enemy spawns ahead of camera');
 
   G.firePlayer();
   assert(G.bullets().length >= 1, 'autofire created bullets');
@@ -227,21 +234,29 @@ section('damage & game over');
   assert(G.save.games >= 1, 'game recorded');
 }
 
-// -------------------- movement --------------------
+// -------------------- movement (platformer) --------------------
 section('movement');
 {
   const G = loadGame();
   G.startGame();
-  const p = G.player();
-  const x0 = p.x;
-  const y0 = p.y;
-  G.movePlayer(0.5, 1, 0);
-  assert(G.player().x > x0, 'moves right');
-  G.movePlayer(0.5, 0, 1);
-  assert(G.player().y > y0, 'moves down');
-  // clamp
-  for (let i = 0; i < 20; i++) G.movePlayer(0.2, 1, 0);
-  assert(G.player().x <= G.PLAY.right - p.r + 0.01, 'clamped to play right');
+  const dt = 1 / 60;
+  const x0 = G.player().x;
+  for (let i = 0; i < 10; i++) G.movePlayer(dt, 1, 0, false);
+  assert(G.player().x > x0, 'runs right');
+  assert(G.player().onGround, 'still grounded after run');
+
+  // Jump
+  G.requestJump();
+  G.setJumpHeld(true);
+  G.movePlayer(dt, 0, 0, true);
+  assert(G.player().vy < 0, 'jump launches upward');
+  assert(!G.player().onGround, 'leaves ground on jump');
+
+  // Fall back under gravity
+  G.setJumpHeld(false);
+  for (let i = 0; i < 120; i++) G.movePlayer(dt, 0, 0, false);
+  assert(G.player().onGround, 'lands after jump');
+  assert(Math.abs(G.player().y - G.GROUND_Y) < 2, 'lands near ground');
 }
 
 // -------------------- upgrades --------------------
