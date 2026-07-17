@@ -1,6 +1,6 @@
 # Neon Autofire
 
-Side-scrolling auto-shooter inspired by *Mr. Autofire* — steer your neon ship, weapons fire themselves, collect XP, and pick upgrades while waves of enemies pour in.
+Side-scrolling **platformer shooter** inspired by *Mr. Autofire* — run and jump a neon hero through the city while guns auto-fire, collect XP, and pick upgrades as waves roll in.
 
 **Play:** https://jmitchell238.github.io/neon-autofire/
 
@@ -8,19 +8,20 @@ Side-scrolling auto-shooter inspired by *Mr. Autofire* — steer your neon ship,
 
 | Input | Action |
 |-------|--------|
-| Drag / virtual stick | Move |
-| WASD / Arrow keys | Move |
+| Left stick / A D / ← → | Run |
+| JUMP button / right tap / Space / W / ↑ | Jump |
 | 1 / 2 / 3 | Pick level-up upgrade |
 | Esc | Menu |
 
-Weapons **auto-aim and auto-fire** at the nearest enemy. You only fly.
+Weapons **auto-aim and auto-fire** at the nearest enemy. You run, jump, and stay alive.
 
 ## Features
 
-- Side-scrolling neon arena with parallax stars
-- Auto-fire combat with spread, multi-barrel, pierce, and orbit drones
-- XP gems → level-up upgrade choices
-- Escalating waves, snipers, tanks, and bosses
+- 2D platformer movement (gravity, coyote time, variable jump)
+- Neon city platforms + parallax skyline
+- Auto-fire combat with spread, multi-barrel, pierce, orbit drones
+- XP gems → level-up upgrades (including spring legs)
+- Ground grunts, hoppers, flyers, gunners, and bosses
 - Heal pickups, screen shake, Web Audio SFX
 - Installable PWA + high-score save
 

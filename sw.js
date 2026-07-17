@@ -1,5 +1,5 @@
 // Bump with GAME_VERSION in js/config.js (MAJOR.MINOR.PATCH).
-const CACHE = 'neon-autofire-1.0.000';
+const CACHE = 'neon-autofire-1.1.000';
 
 const ASSETS = [
   './',

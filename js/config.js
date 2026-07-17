@@ -1,14 +1,13 @@
 'use strict';
-// Neon Autofire — tuning knobs
+// Neon Autofire — tuning knobs (character platformer + auto-shooter)
 
 // ---- Version (MAJOR.MINOR.PATCH) --------------------------------------------
-// Shown in the UI as "Neon Autofire vMAJOR.MINOR.PPP" (patch zero-padded to 3 digits).
 // Keep CACHE in sw.js in sync: 'neon-autofire-' + GAME_VERSION
-const GAME_VERSION = '1.0.000';
+const GAME_VERSION = '1.1.000';
 const GAME_VERSION_LABEL = 'v' + GAME_VERSION;
 const GAME_NAME = 'Neon Autofire';
 
-// Logical stage size (letterboxed to fit screen) — portrait, mobile-first
+// Logical stage size (letterboxed) — portrait, mobile-first
 const W = 390;
 const H = 700;
 
@@ -22,13 +21,29 @@ const PLAY = {
 const PLAY_W = PLAY.right - PLAY.left;
 const PLAY_H = PLAY.bottom - PLAY.top;
 
-// Player
+// World ground line (screen Y of solid floor top)
+const GROUND_Y = PLAY.bottom - 18;
+
+// Player — humanoid platformer
 const PLAYER = {
-  r: 16,
-  speed: 220,
+  w: 22,
+  h: 34,
+  runSpeed: 210,
   maxHp: 100,
-  invuln: 0.55,
-  magnet: 70,
+  invuln: 0.7,
+  magnet: 80,
+  gravity: 1650,
+  jumpVel: -520,
+  maxFall: 780,
+  coyote: 0.1,       // seconds after leaving ledge
+  jumpBuffer: 0.12,  // early jump press window
+  airControl: 0.85,
+};
+
+// Camera: keep hero roughly here on screen
+const CAM = {
+  focusX: W * 0.32,
+  lerp: 6,
 };
 
 // Combat
@@ -37,41 +52,51 @@ const MAX_ENEMIES = 80;
 const MAX_GEMS = 120;
 const MAX_PARTICLES = 200;
 const MAX_PICKUPS = 12;
+const MAX_PLATFORMS = 48;
 
-// XP curve: xp needed for next level
+// XP curve
 function xpForLevel(level) {
   return Math.floor(12 + level * 8 + level * level * 1.4);
 }
 
-// Enemy archetypes
+// Enemy archetypes — ground/air creatures (not ships)
+// fly: true = no gravity, free height; else walks on ground/platforms
 const ENEMIES = {
-  drone:  { r: 12, hp: 18,  speed: 70,  score: 10, xp: 2,  color: '#ff6b8a', damage: 12 },
-  zig:    { r: 11, hp: 14,  speed: 95,  score: 14, xp: 3,  color: '#ffd23e', damage: 10 },
-  tank:   { r: 20, hp: 80,  speed: 40,  score: 35, xp: 6,  color: '#a78bfa', damage: 20 },
-  sniper: { r: 13, hp: 28,  speed: 55,  score: 22, xp: 4,  color: '#3de7ff', damage: 14, shoots: true },
-  swarm:  { r: 8,  hp: 8,   speed: 120, score: 6,  xp: 1,  color: '#7dffa0', damage: 8  },
-  boss:   { r: 36, hp: 500, speed: 35,  score: 400, xp: 40, color: '#ff4fd8', damage: 28, shoots: true },
+  grunt:  { w: 20, h: 28, hp: 22,  speed: 55,  score: 10, xp: 2,  color: '#ff6b8a', damage: 12, fly: false },
+  hopper: { w: 18, h: 22, hp: 16,  speed: 70,  score: 14, xp: 3,  color: '#ffd23e', damage: 10, fly: false, hop: true },
+  brute:  { w: 32, h: 36, hp: 90,  speed: 32,  score: 35, xp: 6,  color: '#a78bfa', damage: 22, fly: false },
+  flyer:  { w: 22, h: 18, hp: 20,  speed: 75,  score: 16, xp: 3,  color: '#3de7ff', damage: 12, fly: true },
+  gunner: { w: 20, h: 30, hp: 32,  speed: 40,  score: 24, xp: 4,  color: '#7dffa0', damage: 14, fly: false, shoots: true },
+  boss:   { w: 48, h: 52, hp: 520, speed: 28,  score: 400, xp: 40, color: '#ff4fd8', damage: 28, fly: false, shoots: true },
 };
 
-// Level-up upgrade definitions
+// Back-compat aliases used by older tests / spawn names
+ENEMIES.drone = ENEMIES.grunt;
+ENEMIES.zig = ENEMIES.hopper;
+ENEMIES.tank = ENEMIES.brute;
+ENEMIES.sniper = ENEMIES.gunner;
+ENEMIES.swarm = ENEMIES.flyer;
+
+// Level-up upgrades
 const UPGRADES = [
-  { id: 'dmg',    name: 'Hot Muzzle',   desc: '+20% bullet damage',   icon: '⚔', stack: true },
-  { id: 'rate',   name: 'Rapid Fire',   desc: '+18% fire rate',       icon: '⚡', stack: true },
-  { id: 'spread', name: 'Scattershot',  desc: '+1 projectile arc',    icon: '✦', stack: true, max: 5 },
-  { id: 'speed',  name: 'Thrusters',    desc: '+12% move speed',      icon: '➤', stack: true },
-  { id: 'hp',     name: 'Shield Core',  desc: '+25 max HP & heal 25', icon: '♥', stack: true },
-  { id: 'magnet', name: 'Loot Magnet',  desc: '+30% gem pull range',  icon: '◎', stack: true },
-  { id: 'multi',  name: 'Twin Guns',    desc: 'Extra parallel barrel',icon: 'Ⅱ', stack: true, max: 3 },
-  { id: 'pierce', name: 'Overcharge',   desc: 'Bullets pierce +1',    icon: '⇀', stack: true, max: 4 },
-  { id: 'orbit',  name: 'Orbit Drones', desc: 'Orbiting plasma orbs', icon: '◉', stack: true, max: 4 },
-  { id: 'heal',   name: 'Nano Repair',  desc: 'Restore 40 HP',        icon: '+', stack: false },
+  { id: 'dmg',    name: 'Hot Muzzle',    desc: '+20% bullet damage',    icon: '⚔', stack: true },
+  { id: 'rate',   name: 'Rapid Fire',    desc: '+18% fire rate',        icon: '⚡', stack: true },
+  { id: 'spread', name: 'Scattershot',   desc: '+1 projectile arc',     icon: '✦', stack: true, max: 5 },
+  { id: 'speed',  name: 'Sprint Boots',  desc: '+12% run speed',        icon: '➤', stack: true },
+  { id: 'hp',     name: 'Body Armor',    desc: '+25 max HP & heal 25',  icon: '♥', stack: true },
+  { id: 'magnet', name: 'Loot Magnet',   desc: '+30% gem pull range',   icon: '◎', stack: true },
+  { id: 'multi',  name: 'Twin Guns',     desc: 'Extra parallel barrel', icon: 'Ⅱ', stack: true, max: 3 },
+  { id: 'pierce', name: 'Armor Piercer', desc: 'Bullets pierce +1',     icon: '⇀', stack: true, max: 4 },
+  { id: 'orbit',  name: 'Orbit Drones',  desc: 'Orbiting plasma orbs',  icon: '◉', stack: true, max: 4 },
+  { id: 'jump',   name: 'Spring Legs',   desc: '+12% jump height',      icon: '⇧', stack: true, max: 4 },
+  { id: 'heal',   name: 'Medkit',        desc: 'Restore 40 HP',         icon: '+', stack: false },
 ];
 
 // Wave spawn pacing
 const WAVE = {
-  baseInterval: 1.35,
-  minInterval: 0.38,
-  ramp: 0.04,          // interval shrink per wave
+  baseInterval: 1.4,
+  minInterval: 0.4,
+  ramp: 0.04,
   baseCount: 3,
   countRamp: 0.55,
   bossEvery: 5,
