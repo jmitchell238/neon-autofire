@@ -130,39 +130,142 @@ function endGame(reason) {
   burst(cx, cy, '#ff4fd8', 18, 140);
 }
 
-// ---- Platforms --------------------------------------------------------------
+// ---- Platforms (single-jump reachable chain) --------------------------------
+/** Peak jump height in world pixels (Y decreases upward). */
+function jumpPeakHeight(jumpMul) {
+  return maxJumpHeight(jumpMul || 1);
+}
+
+/**
+ * Can the player jump from platform A to B with a single full jump?
+ * from/to: {x, y, w}  y = top surface (feet land here)
+ * gap is measured edge-to-edge: to.x - (from.x + from.w)
+ */
+function canReachPlatform(from, to, jumpMul, speedMul) {
+  if (!from || !to) return false;
+  const jm = jumpMul || 1;
+  const sm = speedMul || 1;
+  const rise = from.y - to.y; // >0 if to is higher
+  const peak = jumpPeakHeight(jm);
+  if (rise > peak * 0.92) return false; // physically impossible (tiny float margin)
+  if (rise > peak * JUMP_SAFE.riseFrac) return false; // safety margin for mid-jump / edge
+
+  // Dropping down is easy; cap only so chains don't get weird
+  if (rise < -JUMP_SAFE.maxDrop) return false;
+
+  const gap = to.x - (from.x + from.w);
+  if (gap <= 0) return true; // overlapping / connected
+
+  const baseDist = maxJumpDistance(jm, sm);
+  let gapFrac = JUMP_SAFE.gapFracSame;
+  if (rise > 12) gapFrac = JUMP_SAFE.gapFracUp;
+  else if (rise < -30) gapFrac = JUMP_SAFE.gapFracDown;
+  // Climbing eats horizontal airtime — scale gap down with rise
+  if (rise > 0) {
+    const t = clamp(rise / (peak * JUMP_SAFE.riseFrac), 0, 1);
+    gapFrac *= lerp(1, 0.72, t);
+  }
+  const maxGap = baseDist * gapFrac;
+  return gap <= maxGap;
+}
+
+/** Every consecutive pair in left-to-right order must be single-jump reachable. */
+function platformsChainReachable(list, jumpMul, speedMul) {
+  if (!list || list.length < 2) return true;
+  const sorted = list.slice().sort((a, b) => a.x - b.x);
+  for (let i = 1; i < sorted.length; i++) {
+    if (!canReachPlatform(sorted[i - 1], sorted[i], jumpMul, speedMul)) return false;
+  }
+  return true;
+}
+
+function makePlatform(x, y, w) {
+  const ground = y >= GROUND_Y - 2;
+  return {
+    x,
+    y: clamp(y, PLAY.top + 90, GROUND_Y),
+    w: Math.max(JUMP_SAFE.minWidth, w),
+    h: ground ? 24 : 14,
+    ground,
+  };
+}
+
 function seedPlatforms() {
   platforms = [];
-  // Long starter ground
-  platforms.push({ x: -40, y: GROUND_Y, w: 520, h: 24, ground: true });
-  worldGenX = 480;
+  // Long starter ground — easy runway
+  platforms.push(makePlatform(-40, GROUND_Y, 560));
+  worldGenX = platforms[0].x + platforms[0].w;
   generatePlatformsAhead();
 }
 
+/**
+ * Procedural platforms: each new segment is constrained so a full single jump
+ * from the previous platform can make it (no double-jump assumed).
+ */
 function generatePlatformsAhead() {
   const ahead = cameraX + W * 3 + 200;
+  const peak = jumpPeakHeight(1);
+  const maxRise = peak * JUMP_SAFE.riseFrac;
+  const baseDist = maxJumpDistance(1, 1);
+
   while (worldGenX < ahead && platforms.length < MAX_PLATFORMS) {
-    const gap = rand(40, 110);
-    const w = rand(70, 180);
-    const kind = Math.random();
-    let y;
-    if (kind < 0.45) {
-      y = GROUND_Y; // floor segment
-    } else if (kind < 0.75) {
-      y = GROUND_Y - rand(50, 120);
-    } else {
-      y = GROUND_Y - rand(120, 200);
+    const prev = platforms[platforms.length - 1];
+    let placed = null;
+
+    // Try several random candidates; fall back to a safe step
+    for (let attempt = 0; attempt < 14 && !placed; attempt++) {
+      const roll = Math.random();
+      let rise = 0;
+      if (roll < 0.38) {
+        // Stay near ground / same band
+        rise = rand(-18, 18);
+      } else if (roll < 0.72) {
+        // Mild climb or drop
+        rise = rand(-50, maxRise * 0.75);
+      } else {
+        // Higher step — still within safe rise
+        rise = rand(10, maxRise);
+      }
+
+      // Prefer returning to ground every so often so routes stay friendly
+      let y;
+      if (Math.random() < 0.28) {
+        y = GROUND_Y;
+        rise = prev.y - y;
+      } else {
+        y = prev.y - rise;
+      }
+      y = clamp(y, GROUND_Y - maxRise * 1.05, GROUND_Y);
+
+      const riseActual = prev.y - y;
+      let gapFrac = JUMP_SAFE.gapFracSame;
+      if (riseActual > 12) gapFrac = JUMP_SAFE.gapFracUp;
+      else if (riseActual < -30) gapFrac = JUMP_SAFE.gapFracDown;
+      if (riseActual > 0) {
+        const t = clamp(riseActual / maxRise, 0, 1);
+        gapFrac *= lerp(1, 0.72, t);
+      }
+      const maxGap = baseDist * gapFrac;
+      const gap = rand(JUMP_SAFE.minGap, Math.max(JUMP_SAFE.minGap + 8, maxGap));
+      const w = rand(JUMP_SAFE.minWidth, JUMP_SAFE.maxWidth);
+      const cand = makePlatform(prev.x + prev.w + gap, y, w);
+
+      if (canReachPlatform(prev, cand, 1, 1)) {
+        placed = cand;
+      }
     }
-    y = clamp(y, PLAY.top + 80, GROUND_Y);
-    platforms.push({
-      x: worldGenX + gap,
-      y,
-      w,
-      h: y >= GROUND_Y - 2 ? 24 : 14,
-      ground: y >= GROUND_Y - 2,
-    });
-    worldGenX += gap + w;
+
+    if (!placed) {
+      // Guaranteed safe: short gap, same height or slight drop, wide platform
+      const gap = rand(JUMP_SAFE.minGap, Math.min(56, baseDist * 0.4));
+      const y = Math.min(GROUND_Y, prev.y + rand(0, 24));
+      placed = makePlatform(prev.x + prev.w + gap, y, rand(110, 160));
+    }
+
+    platforms.push(placed);
+    worldGenX = placed.x + placed.w;
   }
+
   // Prune far behind
   const minX = cameraX - 200;
   platforms = platforms.filter(p => p.x + p.w > minX);
@@ -607,13 +710,14 @@ function movePlayer(dt, ix, iy, wantJump) {
     player.inv = PLAYER.invuln;
   }
 
-  // Run anim
+  // Run anim — units of "cycles" so fps stays readable (not a blur)
   if (player.onGround && Math.abs(player.vx) > 20) {
-    player.anim += dt * Math.abs(player.vx) * 0.08;
+    player.anim += dt * (Math.abs(player.vx) / PLAYER.runSpeed);
   } else if (!player.onGround) {
-    player.anim = 0.25;
+    // hold mid jump frame via time in draw; keep anim stable
+    player.anim += dt * 0.35;
   } else {
-    player.anim *= 0.9;
+    player.anim += dt * 0.5; // gentle idle cycle
   }
 }
 

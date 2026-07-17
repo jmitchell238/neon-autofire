@@ -57,7 +57,8 @@ function loadGame() {
   const exportFooter = `
     globalThis.__TEST__ = {
       GAME_VERSION, GAME_VERSION_LABEL, GAME_NAME,
-      W, H, PLAY, PLAYER, ENEMIES, UPGRADES, WAVE, GROUND_Y, xpForLevel,
+      W, H, PLAY, PLAYER, ENEMIES, UPGRADES, WAVE, GROUND_Y, JUMP_SAFE, xpForLevel,
+      maxJumpHeight, maxJumpAirTime, maxJumpDistance,
       state: () => state,
       setState: (s) => { state = s; },
       score: () => score,
@@ -70,12 +71,15 @@ function loadGame() {
       gems: () => gems,
       platforms: () => platforms,
       cameraX: () => cameraX,
+      setCameraX: (x) => { cameraX = x; },
+      worldGenX: () => worldGenX,
       levelChoices: () => levelChoices,
       startGame, resetRun, startWave, spawnEnemy, firePlayer,
       updatePlay, applyUpgrade, addXp, openLevelUp, killEnemy,
       hurtPlayer, endGame, nearestEnemy, movePlayer, requestJump,
-      setJumpHeld, seedPlatforms,
-      clamp, dist, circleHit, defaultStats,
+      setJumpHeld, seedPlatforms, generatePlatformsAhead,
+      canReachPlatform, platformsChainReachable, jumpPeakHeight, makePlatform,
+      clamp, dist, circleHit, defaultStats, lerp,
       save, recordGameEnd, defaultSave,
     };
   `;
@@ -262,6 +266,63 @@ section('movement');
   for (let i = 0; i < 120; i++) G.movePlayer(dt, 0, 0, false);
   assert(G.player().onGround, 'lands after jump');
   assert(Math.abs(G.player().y - G.GROUND_Y) < 2, 'lands near ground');
+}
+
+// -------------------- jump envelope + platform reachability --------------------
+section('platform reachability');
+{
+  const G = loadGame();
+  const peak = G.maxJumpHeight(1);
+  const air = G.maxJumpAirTime(1);
+  const dist = G.maxJumpDistance(1, 1);
+  assert(peak > 70 && peak < 160, 'peak height in sensible range: ' + peak);
+  assert(air > 0.4 && air < 1.2, 'air time sensible: ' + air);
+  assert(dist > 90, 'horizontal jump distance > 90: ' + dist);
+
+  const ground = G.makePlatform(0, G.GROUND_Y, 120);
+  // Same height, short gap — reachable
+  const near = G.makePlatform(120 + 40, G.GROUND_Y, 100);
+  assert(G.canReachPlatform(ground, near, 1, 1), 'short same-height gap reachable');
+
+  // Same height, huge gap — not reachable
+  const far = G.makePlatform(120 + dist * 1.5, G.GROUND_Y, 100);
+  assert(!G.canReachPlatform(ground, far, 1, 1), 'huge same-height gap unreachable');
+
+  // Too high for single jump
+  const sky = G.makePlatform(120 + 30, G.GROUND_Y - peak * 1.2, 100);
+  assert(!G.canReachPlatform(ground, sky, 1, 1), 'over-peak platform unreachable');
+
+  // Safe mild climb
+  const step = G.makePlatform(120 + 36, G.GROUND_Y - peak * 0.4, 110);
+  assert(G.canReachPlatform(ground, step, 1, 1), 'mild climb reachable');
+
+  // Generated world must form a single-jump chain
+  G.startGame();
+  assert(G.platforms().length >= 3, 'seeded several platforms');
+  assert(G.platformsChainReachable(G.platforms(), 1, 1),
+    'seeded platforms form single-jump chain');
+
+  // Force more generation ahead and re-check
+  G.setCameraX(800);
+  G.generatePlatformsAhead();
+  assert(G.platformsChainReachable(G.platforms(), 1, 1),
+    'extended generation still single-jump chain');
+
+  // Stress: many random seeds via reset
+  for (let i = 0; i < 12; i++) {
+    G.startGame();
+    G.setCameraX(200 + i * 350);
+    G.generatePlatformsAhead();
+    assert(G.platformsChainReachable(G.platforms(), 1, 1),
+      'chain reachable after seed ' + i);
+  }
+
+  // Rejected layout helper
+  const badChain = [
+    G.makePlatform(0, G.GROUND_Y, 100),
+    G.makePlatform(100 + dist * 2, G.GROUND_Y - peak, 100),
+  ];
+  assert(!G.platformsChainReachable(badChain, 1, 1), 'detects impossible chain');
 }
 
 // -------------------- upgrades --------------------

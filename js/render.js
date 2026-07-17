@@ -162,7 +162,8 @@ function drawPlayer(ctx, p, t, cam) {
     } else if (key === 'player/death') {
       frame = Math.min(5, Math.floor((p._deathT || 0) * 8));
     } else {
-      frame = animFrame(entry.meta, p.anim || t, 1);
+      // p.anim is cycle units (~1/s at full run); keep speedMul at 1
+      frame = animFrame(entry.meta, p.anim != null ? p.anim : t * 0.5, 1);
     }
   }
 
@@ -230,7 +231,7 @@ function drawEnemy(ctx, e, cam, t) {
 
   let frame = 0;
   if (entry && entry.meta) {
-    frame = animFrame(entry.meta, (e.phase || t), e.type === 'boss' ? 0.8 : 1);
+    frame = animFrame(entry.meta, (e.phase || t) * 0.45, e.type === 'boss' ? 0.7 : 1);
   }
 
   // Shadow
