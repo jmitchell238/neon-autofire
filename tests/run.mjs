@@ -48,6 +48,13 @@ function loadGame() {
     'js/save.js',
     'js/util.js',
     'js/audio.js',
+    'js/game-state.js',
+    'js/effects.js',
+    'js/world.js',
+    'js/player.js',
+    'js/enemies.js',
+    'js/combat.js',
+    'js/game-systems.js',
     'js/game.js',
   ];
   const code = files
@@ -57,18 +64,27 @@ function loadGame() {
   const exportFooter = `
     globalThis.__TEST__ = {
       GAME_VERSION, GAME_VERSION_LABEL, GAME_NAME,
+      PlayerEntity, PlayerWeaponSystem, shotAngles, selectEnemyType, normalizeEnemyType,
       W, H, PLAY, PLAYER, ENEMIES, UPGRADES, WAVE, GROUND_Y, JUMP_SAFE, xpForLevel,
       maxJumpHeight, maxJumpAirTime, maxJumpDistance,
       state: () => state,
       setState: (s) => { state = s; },
+      setWave: (value) => { wave = value; },
+      setSpawnState: (queue, timer) => { spawnQueue = queue; waveTimer = timer; },
+      setRandom: (fn) => { Math.random = fn; },
       score: () => score,
       kills: () => kills,
       wave: () => wave,
       player: () => player,
+      playerWeapon: () => playerWeapon,
       stats: () => stats,
       bullets: () => bullets,
       enemies: () => enemies,
       gems: () => gems,
+      particles: () => particles,
+      pickups: () => pickups,
+      enemyBullets: () => eBullets,
+      orbits: () => orbits,
       platforms: () => platforms,
       cameraX: () => cameraX,
       setCameraX: (x) => { cameraX = x; },
@@ -80,13 +96,19 @@ function loadGame() {
       setJumpHeld, seedPlatforms, generatePlatformsAhead,
       canReachPlatform, platformsChainReachable, jumpPeakHeight, makePlatform,
       clamp, dist, circleHit, defaultStats, lerp,
-      save, recordGameEnd, defaultSave,
+      save, storage: localStorage, recordGameEnd, defaultSave, loadSave, writeSave, persist,
+      randInt, pick, shuffle, solidAt, burst, spark,
+      shotAngles, createPlayerBullet, rebuildOrbits,
+      selectEnemyType, pickEnemyType, normalizeEnemyType, createEnemy, spawnBoss,
+      updateEnemy, enemyHitCircle, updateOrbits, updatePlayerBullets, updateEnemies,
+      createEnemyBullet, updateEnemyWeapons, landCollectibleOnPlatforms,
+      updateGems, updatePickups, updateParticles, updateWaves,
     };
   `;
 
   const sandbox = {
     console,
-    Math,
+    Math: Object.create(Math),
     performance: { now: () => 0 },
     setTimeout: () => 0,
     localStorage: {
@@ -102,7 +124,14 @@ function loadGame() {
   sandbox.globalThis = sandbox;
   sandbox.window = sandbox;
 
-  vm.runInNewContext(code + '\n' + exportFooter, sandbox, { timeout: 5000 });
+  const context = vm.createContext(sandbox);
+  for (const rel of files) {
+    vm.runInContext(read(rel), context, { timeout: 5000, filename: path.join(root, rel) });
+  }
+  vm.runInContext(exportFooter, context, {
+    timeout: 5000,
+    filename: path.join(root, 'tests', '__exports__.js'),
+  });
   return sandbox.__TEST__;
 }
 
@@ -135,6 +164,24 @@ section('PWA shell');
   assert(html.includes('data-screen="over"'), 'over screen');
   // Play chrome must not be a full-screen overlay (iPad touch)
   assert(!html.includes('data-screen="play"'), 'no full-screen play screen overlay');
+}
+
+// -------------------- architecture boundaries --------------------
+section('architecture');
+{
+  for (const file of ['game-state', 'effects', 'world', 'player', 'enemies', 'combat', 'game-systems']) {
+    assert(exists(`js/${file}.js`), `${file} module exists`);
+  }
+  const G = loadGame();
+  G.startGame();
+  assert(G.player() instanceof G.PlayerEntity, 'run owns a PlayerEntity');
+  assert(G.playerWeapon() instanceof G.PlayerWeaponSystem, 'run owns a PlayerWeaponSystem');
+  assertEq(G.shotAngles(0, 0).length, 1, 'no spread creates one angle');
+  const spread = G.shotAngles(0, 2);
+  assertEq(spread.length, 5, 'spread two creates five angles');
+  assert(Math.abs(spread[0] + spread[4]) < 1e-9, 'spread angles are symmetric');
+  assertEq(G.selectEnemyType(1, 0.01), 'grunt', 'enemy selection honors wave gates');
+  assertEq(G.normalizeEnemyType('drone'), 'grunt', 'legacy enemy alias normalized');
 }
 
 // -------------------- version sync --------------------
@@ -343,6 +390,176 @@ section('upgrades');
 
   G.applyUpgrade(G.UPGRADES.find(u => u.id === 'heal'));
   assert(G.player().hp > 0, 'heal keeps hp');
+}
+
+// -------------------- focused domain systems --------------------
+section('domain systems');
+{
+  const G = loadGame();
+  G.startGame();
+  G.setRandom(() => 0.25);
+
+  assertEq(G.randInt(2, 4), 2, 'randInt lower deterministic bucket');
+  assertEq(G.pick(['a', 'b', 'c']), 'a', 'pick deterministic item');
+  const shuffled = G.shuffle([1, 2, 3]);
+  assertEq(shuffled.length, 3, 'shuffle preserves items');
+  assert(G.solidAt(G.player().x, G.player().y + 1, G.player().w, G.player().h), 'solidAt finds starter floor');
+  assertEq(G.solidAt(-999, -999, 1, 1), null, 'solidAt misses empty space');
+
+  const particleCount = G.particles().length;
+  G.burst(10, 10, '#fff', 4, 100);
+  G.spark(10, 10, '#fff');
+  assert(G.particles().length >= particleCount + 5, 'burst and spark create particles');
+
+  assertEq(G.normalizeEnemyType('sniper'), 'gunner', 'sniper alias');
+  assertEq(G.normalizeEnemyType('tank'), 'brute', 'tank alias');
+  assertEq(G.selectEnemyType(8, 0.01), 'brute', 'late-wave brute selection');
+  assertEq(G.selectEnemyType(4, 0.1), 'gunner', 'gunner selection');
+  assertEq(G.selectEnemyType(3, 0.2), 'hopper', 'hopper selection');
+  assertEq(G.selectEnemyType(2, 0.4), 'flyer', 'flyer selection');
+
+  const flyer = G.createEnemy('flyer', G.player().x + 100, 200, 1);
+  G.enemies().push(flyer);
+  G.updateEnemy(flyer, 1 / 60);
+  assert(flyer.x < G.player().x + 100, 'flyer AI drifts toward player');
+  const hopper = G.createEnemy('hopper', G.player().x + 80, G.GROUND_Y, 1);
+  hopper.onGround = true;
+  G.enemies().push(hopper);
+  G.setRandom(() => 0);
+  G.updateEnemy(hopper, 1 / 60);
+  assert(hopper.vy < 0, 'hopper AI jumps');
+  const boss = G.createEnemy('boss', G.player().x + 120, G.GROUND_Y, 1);
+  G.updateEnemy(boss, 1 / 60);
+  assert(Number.isFinite(boss.vx), 'boss pacing updates');
+  assertEq(G.enemyHitCircle(boss).x, boss.x, 'enemy hit circle centered');
+
+  G.enemies().length = 0;
+  const lootBoss = G.createEnemy('boss', G.player().x + 20, G.GROUND_Y, 1);
+  G.enemies().push(lootBoss);
+  G.killEnemy(lootBoss, 0);
+  assert(G.gems().length === 10, 'boss drops ten gems');
+  assert(G.pickups().some(item => item.kind === 'heal'), 'boss guarantees heal pickup');
+  const hpBefore = G.player().maxHp;
+  G.applyUpgrade(G.UPGRADES.find(upgrade => upgrade.id === 'hp'));
+  assert(G.player().maxHp === hpBefore + 25, 'armor upgrade changes max HP');
+
+  G.setState('play');
+  G.enemies().length = 0;
+  G.bullets().length = 0;
+  const target = G.createEnemy('grunt', G.player().x + 30, G.player().y, 1);
+  target.hp = 999;
+  G.enemies().push(target);
+  G.bullets().push({ x: target.x, y: target.y - target.h / 2, vx: 0, vy: 0,
+    r: 5, dmg: 10, pierce: 1, life: 1, color: '#fff' });
+  G.updatePlayerBullets(1 / 60);
+  assert(target.hp < 999 && G.bullets()[0].pierce === 0, 'piercing bullet damages and survives');
+  G.bullets().push({ x: -999, y: 0, vx: 0, vy: 0, r: 1, dmg: 1, pierce: 0, life: 0, color: '#fff' });
+  G.updatePlayerBullets(1 / 60);
+  assert(!G.bullets().some(bullet => bullet.life <= 0), 'expired bullets pruned');
+
+  G.enemies().length = 0;
+  const contact = G.createEnemy('grunt', G.player().x, G.player().y, 1);
+  G.enemies().push(contact);
+  const hpAtContact = G.player().hp;
+  G.player().inv = 0;
+  G.updateEnemies(0, G.player().x, G.player().y - G.player().h / 2);
+  assert(G.player().hp < hpAtContact, 'enemy contact damages player');
+
+  G.enemies().length = 0;
+  G.enemyBullets().length = 0;
+  const gunner = G.createEnemy('gunner', G.player().x + 50, G.player().y, 1);
+  G.enemies().push(gunner);
+  G.player().inv = 0;
+  G.updateEnemyWeapons(0.01, G.player().x, G.player().y - G.player().h / 2);
+  assert(G.enemyBullets().length > 0, 'gunner creates enemy projectile');
+  G.enemyBullets().push({ x: G.player().x, y: G.player().y - G.player().h / 2,
+    vx: 0, vy: 0, r: 5, dmg: 1, life: 1, color: '#fff' });
+  G.player().inv = 0;
+  G.updateEnemyWeapons(0, G.player().x, G.player().y - G.player().h / 2);
+  assert(G.player().inv > 0, 'enemy projectile collision damages player');
+
+  G.gems().length = 0;
+  G.gems().push({ x: G.player().x, y: G.player().y - G.player().h / 2,
+    r: 5, xp: 1, vx: 0, vy: 0, life: 2 });
+  assert(G.updateGems(1 / 60, G.player().x, G.player().y - G.player().h / 2), 'gem update remains in play');
+  assertEq(G.gems().length, 0, 'nearby gem collected');
+
+  G.pickups().length = 0;
+  G.player().hp = Math.max(1, G.player().maxHp - 40);
+  const hurtHp = G.player().hp;
+  G.pickups().push({ x: G.player().x, y: G.player().y - G.player().h / 2,
+    r: 9, kind: 'heal', life: 2, vy: 0 });
+  G.updatePickups(0, G.player().x, G.player().y - G.player().h / 2);
+  assert(G.player().hp > hurtHp, 'heal pickup restores HP');
+
+  G.particles().push({ x: 0, y: 0, vx: 1, vy: 1, life: 0, max: 1 });
+  G.updateParticles(1 / 60);
+  assert(!G.particles().some(particle => particle.life <= 0), 'dead particles pruned');
+
+  G.enemies().length = 0;
+  G.setSpawnState(1, -1);
+  G.setRandom(() => 0.5);
+  G.updateWaves(0);
+  assert(G.enemies().length === 1, 'wave system consumes spawn queue');
+}
+
+// -------------------- defensive and boundary paths --------------------
+section('boundary paths');
+{
+  const G = loadGame();
+  G.startGame();
+  G.setRandom(() => 0.5);
+
+  G.setWave(5);
+  G.enemies().length = 0;
+  G.startWave();
+  assert(G.enemies().some(enemy => enemy.type === 'boss'), 'boss wave spawns boss');
+  const falling = G.createEnemy('grunt', 0, G.PLAY.bottom + 200, 1);
+  G.updateEnemy(falling, 0);
+  assertEq(falling.y, G.GROUND_Y, 'fallen enemy respawns');
+
+  G.enemies().length = 0;
+  G.stats().orbit = 1;
+  G.rebuildOrbits();
+  const orbitTarget = G.createEnemy('grunt', G.player().x + 30, G.player().y, 1);
+  orbitTarget.y = G.player().y - G.player().h / 2 + orbitTarget.h / 2;
+  orbitTarget.hp = 0.1;
+  G.enemies().push(orbitTarget);
+  G.updateOrbits(0.01, G.player().x, G.player().y - G.player().h / 2);
+  assertEq(G.enemies().length, 0, 'orbit collision kills enemy');
+
+  const platform = G.platforms()[0];
+  const item = { x: platform.x + 20, y: platform.y, vy: 10 };
+  assert(G.landCollectibleOnPlatforms(item, 12), 'collectible lands on platform');
+  assertEq(item.vy, 0, 'landed collectible stops falling');
+
+  G.enemies().length = 0;
+  G.setSpawnState(0, 1);
+  const waveBefore = G.wave();
+  G.updateWaves(0);
+  assertEq(G.wave(), waveBefore + 1, 'empty completed wave advances');
+
+  G.setState('play');
+  G.setCameraX(100);
+  G.player().x = 0;
+  G.movePlayer(1 / 60, -1, 0, false);
+  assert(G.player().x >= 124, 'player clamped to camera boundary');
+  G.player().inv = 0;
+  G.player().y = G.PLAY.bottom + 100;
+  G.movePlayer(0, 0, 0, false);
+  assertEq(G.player().y, G.GROUND_Y, 'fallen player respawns');
+
+  const beforePlatforms = G.platforms().length;
+  G.setCameraX(2000);
+  G.generatePlatformsAhead(() => false);
+  assert(G.platforms().length > beforePlatforms, 'platform generator defensive fallback executes');
+
+  G.storage.setItem('neon-autofire-v1', JSON.stringify({ best: 42 }));
+  assertEq(G.loadSave().best, 42, 'save loader merges stored data');
+  const originalGet = G.storage.getItem;
+  G.storage.getItem = () => { throw new Error('storage denied'); };
+  assertEq(G.loadSave().best, 0, 'save loader recovers from storage failure');
+  G.storage.getItem = originalGet;
 }
 
 // -------------------- update tick smoke --------------------
