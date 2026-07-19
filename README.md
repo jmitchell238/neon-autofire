@@ -29,6 +29,21 @@ Weapons **auto-aim and auto-fire** at the nearest enemy. You run, jump, and stay
 
 Static HTML/CSS/Canvas. No build step. Progress in `localStorage`.
 
+## Architecture
+
+The runtime uses a hybrid object-oriented/functional design without a bundler:
+
+- `game-state.js` owns run lifecycle and shared collections.
+- `player.js` defines the stateful `PlayerEntity` and player movement.
+- `combat.js` defines the stateful `PlayerWeaponSystem`; aiming and projectile creation are pure functions.
+- `world.js` contains platform reachability and procedural generation.
+- `enemies.js` contains enemy factories, wave spawning, and AI.
+- `game-systems.js` updates projectiles, collisions, collectibles, effects, and waves.
+- `game.js` is the thin frame-update orchestrator.
+- `render.js` and `main.js` remain the rendering and browser-input boundaries.
+
+Classic scripts are loaded in dependency order in `index.html`; tests load the same order in a Node VM.
+
 ## Pixel art credits
 
 | Pack | Source | License |
@@ -47,8 +62,11 @@ See `assets/CREDITS.md` for the full attribution list.
 ## Tests
 
 ```bash
-node tests/run.mjs
+node tests/all.mjs
+node tests/coverage.mjs
 ```
+
+The coverage gate requires 100% executable-line coverage, at least 80% branch coverage, and at least 95% function coverage across every file in `js/` plus `sw.js`.
 
 ## Local
 

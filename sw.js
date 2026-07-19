@@ -1,5 +1,5 @@
 // Bump with GAME_VERSION in js/config.js (MAJOR.MINOR.PATCH).
-const CACHE = 'neon-autofire-1.2.002';
+const CACHE = 'neon-autofire-1.3.001';
 
 const ASSETS = [
   './',
@@ -10,6 +10,13 @@ const ASSETS = [
   './js/util.js',
   './js/audio.js',
   './js/sprites.js',
+  './js/game-state.js',
+  './js/effects.js',
+  './js/world.js',
+  './js/player.js',
+  './js/enemies.js',
+  './js/combat.js',
+  './js/game-systems.js',
   './js/game.js',
   './js/render.js',
   './js/main.js',
@@ -86,7 +93,7 @@ function sameOrigin(url) {
 }
 
 function networkFirst(request) {
-  return fetch(request).then(res => {
+  return fetch(request, { cache: 'no-store' }).then(res => {
     if (res.ok && sameOrigin(request.url)) {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(request, copy));
