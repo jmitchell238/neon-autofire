@@ -1,8 +1,8 @@
 # Neon Autofire
 
-Side-scrolling **platformer shooter** inspired by *Mr. Autofire* — run and jump a neon hero through the city while guns auto-fire, collect XP, and pick upgrades as waves roll in.
+A side-scrolling platformer shooter inspired by Mr. Autofire. Run and jump through a neon city while your guns fire on their own, collect XP, and pick an upgrade each time you level up.
 
-**Play:** https://jmitchell238.github.io/neon-autofire/
+Play at https://jmitchell238.github.io/neon-autofire/
 
 ## Controls
 
@@ -13,51 +13,50 @@ Side-scrolling **platformer shooter** inspired by *Mr. Autofire* — run and jum
 | 1 / 2 / 3 | Pick level-up upgrade |
 | Esc | Menu |
 
-Weapons **auto-aim and auto-fire** at the nearest enemy. You run, jump, and stay alive.
+Weapons aim and fire at the nearest enemy automatically. Your job is to move and stay alive.
 
 ## Features
 
-- 2D platformer movement (gravity, coyote time, variable jump)
-- Neon city platforms + parallax skyline
-- Auto-fire combat with spread, multi-barrel, pierce, orbit drones
-- XP gems → level-up upgrades (including spring legs)
-- Ground grunts, hoppers, flyers, gunners, and bosses
-- Heal pickups, screen shake, Web Audio SFX
-- Installable PWA + high-score save
+- Platformer movement with coyote time and variable jump height
+- Neon city platforms and a parallax skyline
+- Weapon upgrades: spread shot, extra barrels, piercing, orbiting drones
+- XP gems that level you up, with a choice of upgrades each time (including spring legs)
+- Grunts, hoppers, flyers, gunners and bosses
+- Health pickups, screen shake, Web Audio sound effects
+- Installable PWA with a saved high score
 
-## Stack
+## Code
 
-Static HTML/CSS/Canvas. No build step. Progress in `localStorage`.
+Plain HTML, CSS and canvas with no build step. Progress is saved in localStorage.
 
-## Architecture
 
-The runtime uses a hybrid object-oriented/functional design without a bundler:
+| File | Contents |
+|------|----------|
+| `game-state.js` | Run state and shared collections |
+| `player.js` | `PlayerEntity` and movement |
+| `combat.js` | `PlayerWeaponSystem`, aiming, projectiles |
+| `world.js` | Level generation and platform reachability |
+| `enemies.js` | Enemy types, wave spawning, AI |
+| `game-systems.js` | Projectiles, collisions, pickups, effects, waves |
+| `game.js` | Per-frame update |
+| `render.js` | Drawing |
+| `main.js` | Browser input and setup |
 
-- `game-state.js` owns run lifecycle and shared collections.
-- `player.js` defines the stateful `PlayerEntity` and player movement.
-- `combat.js` defines the stateful `PlayerWeaponSystem`; aiming and projectile creation are pure functions.
-- `world.js` contains platform reachability and procedural generation.
-- `enemies.js` contains enemy factories, wave spawning, and AI.
-- `game-systems.js` updates projectiles, collisions, collectibles, effects, and waves.
-- `game.js` is the thin frame-update orchestrator.
-- `render.js` and `main.js` remain the rendering and browser-input boundaries.
-
-Classic scripts are loaded in dependency order in `index.html`; tests load the same order in a Node VM.
+The scripts are plain `<script>` tags loaded in order in `index.html`. The tests load them in the same order in a Node VM.
 
 ## Pixel art credits
 
 | Pack | Source | License |
 |------|--------|---------|
-| **3 Cyberpunk Characters** (Cyborg player, Biker/Punk enemies) | [OpenGameArt](https://opengameart.org/content/3-cyberpunk-characters) / [CraftPix freebie](https://craftpix.net/freebies/free-3-cyberpunk-characters-pixel-art/) | OGA-BY 3.0 |
-| **Cyber City** (skyline + yakuza foes) | [OpenGameArt — Buch](https://opengameart.org/content/cyber-city) | CC0 |
-| **Free Sci-Fi Platformer Tileset** | [OpenGameArt](https://opengameart.org/content/free-sci-fi-platformer-game-tileset) | CC0 |
+| 3 Cyberpunk Characters (Cyborg player, Biker/Punk enemies) | [OpenGameArt](https://opengameart.org/content/3-cyberpunk-characters) / [CraftPix freebie](https://craftpix.net/freebies/free-3-cyberpunk-characters-pixel-art/) | OGA-BY 3.0 |
+| Cyber City (skyline, yakuza enemies) | [OpenGameArt — Buch](https://opengameart.org/content/cyber-city) | CC0 |
+| Free Sci-Fi Platformer Tileset | [OpenGameArt](https://opengameart.org/content/free-sci-fi-platformer-game-tileset) | CC0 |
 
-See `assets/CREDITS.md` for the full attribution list.
+Full attribution is in `assets/CREDITS.md`.
 
 ## Versioning
 
-- `GAME_VERSION` in `js/config.js` — `MAJOR.MINOR.PATCH` (patch zero-padded to 3 digits)
-- Keep `CACHE` in `sw.js` in sync: `'neon-autofire-' + GAME_VERSION`
+`GAME_VERSION` in `js/config.js` is `MAJOR.MINOR.PATCH` with a three-digit patch. When you bump it, set `CACHE` in `sw.js` to `'neon-autofire-' + GAME_VERSION`.
 
 ## Tests
 
@@ -66,12 +65,12 @@ node tests/all.mjs
 node tests/coverage.mjs
 ```
 
-The coverage gate requires 100% executable-line coverage, at least 80% branch coverage, and at least 95% function coverage across every file in `js/` plus `sw.js`.
+`coverage.mjs` fails unless `js/` and `sw.js` have 100% line coverage, at least 80% branch coverage and at least 95% function coverage.
 
-## Local
+## Running locally
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080`.
+Then open http://localhost:8080.
