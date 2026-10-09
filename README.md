@@ -25,25 +25,6 @@ Weapons aim and fire at the nearest enemy automatically. Your job is to move and
 - Health pickups, screen shake, Web Audio sound effects
 - Installable PWA with a saved high score
 
-## Code
-
-Plain HTML, CSS and canvas with no build step. Progress is saved in localStorage.
-
-
-| File | Contents |
-|------|----------|
-| `game-state.js` | Run state and shared collections |
-| `player.js` | `PlayerEntity` and movement |
-| `combat.js` | `PlayerWeaponSystem`, aiming, projectiles |
-| `world.js` | Level generation and platform reachability |
-| `enemies.js` | Enemy types, wave spawning, AI |
-| `game-systems.js` | Projectiles, collisions, pickups, effects, waves |
-| `game.js` | Per-frame update |
-| `render.js` | Drawing |
-| `main.js` | Browser input and setup |
-
-The scripts are plain `<script>` tags loaded in order in `index.html`. The tests load them in the same order in a Node VM.
-
 ## Pixel art credits
 
 | Pack | Source | License |
@@ -54,23 +35,6 @@ The scripts are plain `<script>` tags loaded in order in `index.html`. The tests
 
 Full attribution is in `assets/CREDITS.md`.
 
-## Versioning
+## Development
 
-`GAME_VERSION` in `js/config.js` is `MAJOR.MINOR.PATCH` with a three-digit patch. When you bump it, set `CACHE` in `sw.js` to `'neon-autofire-' + GAME_VERSION`.
-
-## Tests
-
-```bash
-node tests/all.mjs
-node tests/coverage.mjs
-```
-
-`coverage.mjs` fails unless `js/` and `sw.js` have 100% line coverage, at least 80% branch coverage and at least 95% function coverage.
-
-## Running locally
-
-```bash
-python3 -m http.server 8080
-```
-
-Then open http://localhost:8080.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for running it locally, tests and versioning, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the code is organized.
